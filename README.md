@@ -1,5 +1,5 @@
 # ePaper-Train-Departure-Board
-This is code for a UK train departure board using Waveshare ePaper 3.7" display and Raspberry Pi Pico W. It uses the National Rail API "Darwin" from the Rail Data Marketplace (RDM). The endpoint can be found [here] (https://raildata.org.uk/dataProduct/P-9a01dd96-7211-4912-bcbb-c1b5d2e35609/overview). The code uses the MicroPython NanoGUI libraries which can be found in [this repo](https://github.com/waveshareteam/Pico_ePaper_Code). There's also some comprehensive documentation from the author of the NanoGUI modules [here](https://github.com/peterhinch/micropython-nano-gui).
+This is code for a UK train departure board using Waveshare ePaper 3.7" display and Raspberry Pi Pico W. It uses the National Rail API "Darwin" from the Rail Data Marketplace (RDM). The endpoint can be found [here](https://raildata.org.uk/dataProduct/P-9a01dd96-7211-4912-bcbb-c1b5d2e35609/overview). The code uses the MicroPython NanoGUI libraries which can be found in [this repo](https://github.com/waveshareteam/Pico_ePaper_Code). There's also some comprehensive documentation from the author of the NanoGUI modules [here](https://github.com/peterhinch/micropython-nano-gui).
 Note: Still a work in progress
 ## Hardware requirements
 - Raspberry Pi Pico W with soldered headers
