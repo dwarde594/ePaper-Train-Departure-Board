@@ -10,11 +10,11 @@ Note: Still a work in progress
 2. Sign up to Rail Data Marketplace (RDM) [here](https://raildata.org.uk/)
 3. Subscribe to the Live Departure Board endpoint in RDM (linked above)
 4. Note your consumer secret. This can be found on the subscription page under "Specification"
-5. Transfer the color_setup.py, main.py files and drivers folder onto the pico's file system. Easiest to use Thonny IDE to do this
-6. Paste your API consumer secret into the api_key variable in main.py
-7. Enter your Wi-Fi SSID and password in the main.py file to connect to the network
-8. Customise the other options in the main.py file, such as numRows (number of services displayed), leaving_from and destination stations
-9. Test the program by running main.py and you should see the train info appear on the screen
+5. Transfer the `color_setup.py`, `main.py` files and `drivers` folder onto the pico's file system. Easiest to use Thonny IDE to do this
+6. Paste your API consumer secret into the `api_key` variable in `main.py`
+7. Enter your Wi-Fi SSID and password in the variables in `main.py` file to connect to the network
+8. Customise the other options in the `main.py` file, such as `numRows` (number of services displayed), `leaving_from` and `destination` stations. These should be CRS codes in all capitals. An explanation of CRS codes can be found [here](https://www.rail-record.co.uk/railway-location-codes/) along with a tool to identify a station's code.
+9. Test the program by running `main.py` and you should see the train info appear on the display
 ## Freezing bytecode
 If you want to create your own uf2 image file, [this GitHub issue](https://github.com/orgs/micropython/discussions/13019) provides a comprehensive method for doing this. It's also detailed in [Peter Hinch's NanoGUI repo](https://github.com/peterhinch/micropython-nano-gui?tab=readme-ov-file#appendix-1-freezing-bytecode).
    
