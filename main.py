@@ -1,4 +1,3 @@
-#import uasyncio as asyncio
 import gc
 import network
 import urequests
@@ -20,15 +19,18 @@ ssid = "<YOUR-SSID-HERE>"
 password = "<YOUR-PASSWORD-HERE>"
 
 # Parameters for the API call
-leaving_from = "<CRS-CODE-HERE>"
-destination = "<FILTER-CRS-CODE-HERE>"
-numRows = 5 # Number of services to return
+leaving_from = "RDH"
+destination = "LBG"
+numRows = 5
 
 # URL for the API endpoint with added parameters seen above
 url = f"https://api1.raildata.org.uk/1010-live-departure-board-dep/LDBWS/api/20220120/GetDepBoardWithDetails/{leaving_from}?numRows={numRows}&filterCRS={destination}"
 
 # API key from Rail Data Marketplace subscription (Live Departure Board service)
-api_key = "<YOUR-API-KEY-HERE>"
+api_key = "<YOUR-API-SECRET-KEY>"
+
+# Holds the delay info text displayed on the board
+delayBuffer = ""
 
 def connect(ssid, password):
     ''' Function that connects to the wireless network using the ssid and password parameters. '''
@@ -46,21 +48,14 @@ def connect(ssid, password):
 
 
 def getData(url : str, api_key : str):
-    ''' Function that gets the departure data from the API endpoint and returns as JSON. '''
-    headers = {
-        "x-apikey": api_key
-    }
-    
-    # TO-DO: Fix the memory issues encountered. Useful links:
-    # https://stackoverflow.com/questions/74883568/oserror-errno-12-enomem
-    # https://github.com/micropython/micropython/issues/9003
+    ''' Function that gets the departure data from the API endpoint, extracts key data and returns as a dictionary. '''
+
     try:
-        req = urequests.get(url, headers=headers)
+        req = urequests.get(url, headers={"x-apikey": api_key})
     # If API call fails, print error and output to message screen. Then raise error.
     except Exception as e:
         message = "API call failed:", e
         print(message)
-        #displayError(message)
         raise e
 
     data = req.json()
@@ -68,32 +63,39 @@ def getData(url : str, api_key : str):
     # Close once finished (very important!)
     req.close()
     
+    # If there are no train services, garbage collect and return -1
+    if "trainServices" not in data.keys():
+        gc.collect()
+        return -1
+    
+    # Dictionary that holds only the required departure info
+    formatted_data = []
+    
+    for row in range(0, len(data["trainServices"])):
+        # Contains departure info about the service
+        service_info = {
+            "std": data["trainServices"][row]["std"], # Time
+            "destination": data["trainServices"][row]["destination"][0]["locationName"], # Destination
+            "etd": data["trainServices"][row]["etd"] # Expected
+        }
+        
+        # Gets the dictionary keys of the train service for identification of delay/cancellation messages
+        service_keys = data["trainServices"][row].keys()
+        
+        # Checks if the service is delayed or cancelled. If so, add to the reason to the output dictionary
+        if "delayReason" in service_keys:
+            service_info["delayReason"] = data["trainServices"][row]["delayReason"]
+        
+        elif "cancelReason" in service_keys:
+            service_info["cancelReason"] = data["trainServices"][row]["cancelReason"]
+        
+        formatted_data.append(service_info)
+        
+    print(formatted_data)
     gc.collect()
     
-    return data
+    return formatted_data
 
-def formatData(data: dict):
-    ''' Formats the data, returning the service information as a 2d list of Label objects to be displayed '''
-    # 2d list containing data
-    services = []
-    
-    for service in data["trainServices"]:
-        # Row to be added to the 2d list
-        row = [
-            service["std"], # Time
-            service["destination"][0]["locationName"], # Destination
-            service["etd"] # Expected
-        ]
-        
-        # If the service is delayed or cancelled, add the reason to the row.
-        if "delayReason" in service.keys():
-            row.append(service["delayReason"])
-        elif "cancelReason" in service.keys():
-            row.append(service["cancelReason"])
-        
-        services.append(row)
-        
-    return services
 
 def initialiseBoard(wri, y_pos: int):
     ''' Function that prepares the display for the train info to be added. '''
@@ -105,7 +107,7 @@ def initialiseBoard(wri, y_pos: int):
     delay_y_pos = y_pos + 160
     
     # Increment y_pos to move down the page
-    y_pos += 20
+    y_pos += courier20.height()
     
     Label(wri, y_pos, 0, "Time")
     Label(wri, y_pos, 90, "Destination")
@@ -115,7 +117,7 @@ def initialiseBoard(wri, y_pos: int):
     print("Mem after board headers:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     # Train data will be further down the page
-    y_pos += 20
+    y_pos += courier20.height()
     
     # 2d list to store the departure details
     board = []
@@ -132,28 +134,68 @@ def initialiseBoard(wri, y_pos: int):
         board.append(row)
         
         # Increment y_pos to move down the screen
-        y_pos += 20
+        y_pos += courier20.height()
     
     print("Mem after board contents:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     # Finally adds the delay information to the bottom of the board
-    board.append(Textbox(wri, delay_y_pos, 0, wri.stringlen("This is the width of the textbox.."), 3, clip=False))
+    board.append(Textbox(wri, y_pos + courier20.height(), 0, wri.stringlen("This is the width of the textbox.."), 4, clip=False))
     gc.collect()
     print("Mem after delays box:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     return board
 
-def updateBoard(board, services):
-    ''' Loops through all items in the 2d board array and updates the labels on the display with their corresponding values '''
+
+def newUpdateBoard(board, data: dict):
+    ''' Adds the data to the display in a readable format. Combined updateBoard and formatData functions to save RAM '''
+    global delayBuffer
     
-    for row in range(0, len(services)):
-        for col in range(0, 3):
-            board[row][col].value(services[row][col])
-            
-        # Adds delay information at bottom of screen if that train is delayed. board[-1] last element of list which is the delay info item
-        try:
-            board[-1].append(services[row][0] + ": " + services[row][3])
-        except IndexError:
+    # Flag to show if a delay has already been discovered
+    delayFound = False
+    
+    for row in range(0, len(data)):
+        # Rows to be added to the board
+        
+        board[row][0].value(data[row]["std"]) # Time
+        board[row][1].value(data[row]["destination"]) # Destination
+        board[row][2].value(data[row]["etd"]) # Expected
+        
+        # If train is on time, no need to display delay info
+        if data[row]["etd"] == "On time":
             continue
+        
+        # If delay info is already displayed for this service, or a delay is already found, skip to next service.
+        if data[row]["std"] in delayBuffer or delayFound == True:
+            continue
+        
+        # Iterates through dictionary keys and produces any cancellation or delay messages
+        delay_gen = (key for key in ["delayReason", "cancelReason"] if key in data[row])
+        try:
+            delay_key = next(delay_gen)
+        # Once end of generator is reached, return no delay info
+        except StopIteration:
+            delay_key = None
+            continue
+        
+        # If service is delayed or cancelled, add delay message to the textbox on board
+        if delay_key in ["delayReason", "cancelReason"]:
+            delayBuffer = data[row]["std"] + ": " + data[row][delay_key]
+            board[-1].append(delayBuffer)
+            delayFound = True
+            
+        # Gets the dictionary keys of the train service for identification of delay/cancellation messages
+#         service_keys = data[row].key()
+        
+        # TO-DO: This bit needs improving, maybe with a match statement?
+        # If the service is delayed or cancelled, add the reason to the row.
+#         if "delayReason" in service_keys:
+#             delayBuffer = data[row]["std"] + ": " + data[row]["delayReason"]
+#             board[-1].append(delayBuffer)
+#             delayFound = True
+#         elif "cancelReason" in service_keys:
+#             delayBuffer = data[row]["std"] + ": " + data[row]["cancelReason"]
+#             board[-1].append(delayBuffer)
+#             delayFound = True
+        
 
 def displayError(wri, error: str):
     ''' Function that displays an error on the display to help with troubleshooting '''
@@ -165,8 +207,7 @@ def displayError(wri, error: str):
     
     # Draw the error string to the screen at x=0 y=0
     wri.set_textpos(ssd, 0, 0)
-    wri.printstring(leaving_from + " -> " + destination + "\n" + error)
-
+    wri.printstring(leaving_from + " -> " + destination + "\n" + error + "\n" + "Mem alloc:" + str(gc.mem_alloc()) + " bytes\n" "Mem free: " + str(gc.mem_free()) + " bytes")
 
     # Refresh to show the text
     refresh(ssd)
@@ -178,9 +219,7 @@ def main():
     # Writer object with courier 20 font
     wri = Writer(ssd, courier20, verbose=False)
     print("Mem after writer:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
-    # Sets the clip parameters row_clip=False, col_clip=False, wrap=True
-    wri.set_clip(False, False, True)
-    
+
     refresh(ssd, True)
     
     # Connects to network using supplied ssid and password
@@ -209,31 +248,15 @@ def main():
         
         print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
         
-        # Checks if train data is not present in the API response
-        if "trainServices" not in data.keys():
-            # String containing train information
-            message = ""
-            
-            try:
-                nrcc_messages = data["nrccMessages"]
-            except KeyError:
-                # If there are no messages from the train operators, print a generic statement.
-                message = "There are no direct trains between these stations today. Please check the National Rail website for more info."
-                print(message)
-            # If there are messages from the train operators...
-            else:
-                # Loop through all train info messages
-                for item in nrcc_messages:
-                    # Add the message to the string to be displayed
-                    message += item["Value"]
-            finally:
-                # Displays messages using function
-                displayError(wri, message)
+        # Check if no services. If so, display on screen. getData function will return -1 if there are no services
+        if data == -1:
+            message = "There are no direct trains between these stations today. Please check the National Rail website for more info."
+            print(message)
+            displayError(wri, message)
         
-            # OLD: Display the train data on the screen, passing JSON data and starting y position
-            #displayData(data, 0)
         else:
-            updateBoard(board, formatData(data))
+            # Update the board with the data
+            newUpdateBoard(board, data)
             refresh(ssd)
             
 
@@ -241,7 +264,7 @@ def main():
         gc.collect()
         print("Mem after g collection:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free())
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
-        sleep(30)
+        sleep(180)
         
 if __name__ == '__main__':
     main()
