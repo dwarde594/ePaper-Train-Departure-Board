@@ -29,8 +29,8 @@ except Exception as e:
     raise e
 
 # Info to connect to wireless network
-ssid = "<YOUR-SSID-HERE>"
-password = "<YOUR-PASSWORD-HERE>"
+ssid = "<YOUR-SSID>"
+password = "<YOUR-PASSWORD>"
 
 # Parameters for the API call
 leaving_from = config["crs"]
@@ -45,6 +45,9 @@ api_key = config["api_key"]
 
 # Holds the delay info text displayed on the board
 delayBuffer = ""
+
+# Flag to show if there are no trains to display
+noTrains = False
 
 def connect(ssid, password):
     ''' Function that connects to the wireless network using the ssid and password parameters. '''
@@ -71,17 +74,21 @@ def getData(url : str, api_key : str):
         message = "API call failed:", e
         print(message)
         raise e
-
+    
+    print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
+    
     # Parses response to JSON. Very RAM intensive ATM, need to look at this.
     data = req.json()
-
+    
+    print("Mem after parsed API response:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
+    
     # Close once finished (very important!)
     req.close()
     
-    # If there are no train services, garbage collect and return -1
+    # If there are no train services, garbage collect and return None
     if "trainServices" not in data.keys():
         gc.collect()
-        return -1
+        return None
     
     # Dictionary that holds only the required departure info
     formatted_data = []
@@ -105,7 +112,8 @@ def getData(url : str, api_key : str):
             service_info["cancelReason"] = data["trainServices"][row]["cancelReason"]
         
         formatted_data.append(service_info)
-        
+    
+    print("Mem after formatted API response:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     print(formatted_data)
     gc.collect()
     
@@ -159,14 +167,27 @@ def initialiseBoard(wri, y_pos: int):
 
 def newUpdateBoard(board, data: dict):
     ''' Adds the data to the display in a readable format. Combined updateBoard and formatData functions to save RAM '''
-    global delayBuffer
+    global delayBuffer, noTrains
     
     # Flag to show if a delay has already been discovered
     delayFound = False
     
-    # Length of data dict
-    dataLen = len(data)
-    
+    # Checks if there are no trains in the response dictionary
+    if data is None and not noTrains:
+        # Add message to textbox
+        board[-1].append(message, nlines=4)
+        # noTrains is True. Next time the board will only refresh if trains are present
+        noTrains = True
+        # dataLen set to -1. All rows will be removed in the loop
+        dataLen = -1
+    # If the no trains message is already displayed
+    elif data is None and noTrains:
+        # Exit function. Do not need to update board.
+        return
+    else:
+        # Length of data dict
+        dataLen = len(data)
+        
     for row in range(0, numRows):
         # If there are no more services to be displayed, reset the remaining row values and continue next loop
         if row > dataLen:
@@ -185,7 +206,7 @@ def newUpdateBoard(board, data: dict):
             continue
         
         # If delay info is already displayed for this service, or a delay is already found, skip to next service.
-        if data[row]["std"] in delayBuffer or delayFound == True:
+        if data[row]["std"] in delayBuffer or delayFound:
             continue
         
         # Iterates through dictionary keys and produces any cancellation or delay messages
@@ -203,8 +224,7 @@ def newUpdateBoard(board, data: dict):
             # Adds delay/cancellation message to display. ntrim=4 sets no. of text lines to store in RAM
             board[-1].append(delayBuffer, ntrim=4)
             delayFound = True
-        
-            
+
 
 def displayError(wri, error: str):
     ''' Function that displays an error on the display to help with troubleshooting '''
@@ -257,19 +277,12 @@ def main():
             raise e
         
         print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
-        
-        # Check if no services. If so, display on screen. getData function will return -1 if there are no services
-        if data == -1:
-            message = "There are no direct trains between these stations today. Please check the National Rail website for more info."
-            print(message)
-            displayError(wri, message)
-        
-        else:
-            # Update the board with the data
-            newUpdateBoard(board, data)
-            refresh(ssd)
-            
 
+        # Update the board with the data
+        newUpdateBoard(board, data)
+        # Refresh display after board update
+        refresh(ssd)
+        
         print("Mem after:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free())
         gc.collect()
         print("Mem after g collection:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free())
