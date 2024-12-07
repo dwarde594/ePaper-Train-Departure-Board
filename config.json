@@ -1,8 +1,8 @@
 {
-    "ssid":"<YOUR-SSID-HERE>",
-    "password":"<YOUR-PASSWORD-HERE>",
-    "api_key":"<YOUR-API-KEY-HERE>",
-    "crs":"BFR",
-    "filterCrs":"LBG",
+    "ssid": "<YOUR-SSID-HERE>",
+    "password": "<YOUR-PASSWORD-HERE>",
+    "api_key": "<YOUR-API-KEY-HERE>",
+    "crs": "BFR",
+    "filterCrs": "LBG",
     "numRows": 4
 }

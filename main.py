@@ -13,8 +13,8 @@ from gui.widgets.label import Label  # Import Label widget to display text
 from gui.widgets.textbox import Textbox # Import Textbox widget to display long text
 print("Mem after imports: ", gc.mem_alloc())
 import gui.fonts.courier20 as courier20  # Import courier20 font
-#import gui.fonts.font10 as font10 # Import font10 font
 print("Mem after font import: ", gc.mem_alloc())
+print(micropython.mem_info())
 
 # Opens config.json file and implements error handling
 try:
@@ -29,19 +29,23 @@ except Exception as e:
     raise e
 
 # Info to connect to wireless network
-ssid = "<YOUR-SSID>"
-password = "<YOUR-PASSWORD>"
+ssid = config["ssid"]
+password = config["password"]
 
 # Parameters for the API call
 leaving_from = config["crs"]
 destination = config["filterCrs"]
 numRows = config["numRows"]
 
-# URL for the API endpoint with added parameters seen above
-url = f"https://api1.raildata.org.uk/1010-live-departure-board-dep/LDBWS/api/20220120/GetDepBoardWithDetails/{leaving_from}?numRows={numRows}&filterCRS={destination}"
-
 # API key from Rail Data Marketplace subscription (Live Departure Board service)
 api_key = config["api_key"]
+
+# Remove config dictionary to save RAM, and garbage collect
+del config
+gc.collect()
+
+# URL for the API endpoint with added parameters seen above
+url = f"https://api1.raildata.org.uk/1010-live-departure-board-dep/LDBWS/api/20220120/GetDepBoardWithDetails/{leaving_from}?numRows={numRows}&filterCRS={destination}"
 
 # Holds the delay info text displayed on the board
 delayBuffer = ""
@@ -50,25 +54,38 @@ delayBuffer = ""
 noTrains = False
 
 def connect(ssid, password):
-    ''' Function that connects to the wireless network using the ssid and password parameters. '''
+    """Function that connects to the wireless network using the ssid and password parameters."""
     wlan = network.WLAN(network.STA_IF)
-    
+    # Closes any previous connections
+    wlan.disconnect()
     wlan.active(True)
-    
+
     wlan.connect(ssid, password)
-    
-    while wlan.isconnected() == False:
-        print("Waiting for connection...")
+
+    max_retries = 5
+    attempt = 0
+
+    while not wlan.isconnected() and attempt < max_retries:
+        print(f"Attempt {attempt + 1} of {max_retries}: Waiting for connection...")
         sleep(1)
-    
-    print(wlan.ifconfig())
+        attempt += 1
+
+    if wlan.isconnected():
+        print("Connected successfully.")
+        print("Network configuration:", wlan.ifconfig())
+        return wlan
+    else:
+        print(f"Failed to connect after {attempt} connection attempts.")
+        raise Exception(f"Failed to connect after {attempt} connection attempts.")
+
 
 
 def getData(url : str, api_key : str):
     ''' Function that gets the departure data from the API endpoint, extracts key data and returns as a dictionary. '''
-
+    
     try:
         req = urequests.get(url, headers={"x-apikey": api_key})
+        print("Response code:", req.status_code)
     # If API call fails, print error and output to message screen. Then raise error.
     except Exception as e:
         message = "API call failed:", e
@@ -110,7 +127,7 @@ def getData(url : str, api_key : str):
         
         elif "cancelReason" in service_keys:
             service_info["cancelReason"] = data["trainServices"][row]["cancelReason"]
-        
+            
         formatted_data.append(service_info)
     
     print("Mem after formatted API response:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
@@ -174,6 +191,7 @@ def newUpdateBoard(board, data: dict):
     
     # Checks if there are no trains in the response dictionary
     if data is None and not noTrains:
+        message = "There are no direct trains between these stations today. Please check the National Rail website for more info."
         # Add message to textbox
         board[-1].append(message, nlines=4)
         # noTrains is True. Next time the board will only refresh if trains are present
@@ -185,6 +203,8 @@ def newUpdateBoard(board, data: dict):
         # Exit function. Do not need to update board.
         return
     else:
+        # Trains are available, so set noTrains to False
+        noTrains = False
         # Length of data dict
         dataLen = len(data)
         
@@ -220,9 +240,9 @@ def newUpdateBoard(board, data: dict):
         
         # If service is delayed or cancelled, add delay message to the textbox on board
         if delay_key in ["delayReason", "cancelReason"]:
-            delayBuffer = data[row]["std"] + ": " + data[row][delay_key]
+            delayBuffer = data[row]["std"]
             # Adds delay/cancellation message to display. ntrim=4 sets no. of text lines to store in RAM
-            board[-1].append(delayBuffer, ntrim=4)
+            board[-1].append(data[row]["std"] + ": " + data[row][delay_key], ntrim=4)
             delayFound = True
 
 
@@ -245,15 +265,16 @@ def displayError(wri, error: str):
 
 def main():
     ''' Main function that displays the data on the screen. '''
+    global ssid, password
+    
     # Writer object with courier 20 font
     wri = Writer(ssd, courier20, verbose=False)
-    print("Mem after writer:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     refresh(ssd, True)
     
     # Connects to network using supplied ssid and password
     try:
-        connect(ssid, password)
+        wlan = connect(ssid, password)
 
     # If connection fails, print error message and display it on screen. Then raise the error
     except Exception as e:
@@ -267,7 +288,13 @@ def main():
     board = initialiseBoard(wri, 0)
     print("Mem after board:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     while True:
-
+        
+        if not wlan.isconnected():
+            message = "Wi-Fi connection lost. Please check you are in range."
+            print(message)
+            displayError(wri, message)
+            raise Exception("Wi-Fi connection lost.")
+        
         try:
             # Call getData function and store in JSON variable
             data = getData(url, api_key)
@@ -285,7 +312,6 @@ def main():
         
         print("Mem after:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free())
         gc.collect()
-        print("Mem after g collection:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free())
         print(micropython.mem_info())
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
         sleep(180)
