@@ -62,7 +62,7 @@ def connect(ssid, password):
 
     wlan.connect(ssid, password)
 
-    max_retries = 5
+    max_retries = 6
     attempt = 0
 
     while not wlan.isconnected() and attempt < max_retries:
@@ -191,9 +191,9 @@ def newUpdateBoard(board, data: dict):
     
     # Checks if there are no trains in the response dictionary
     if data is None and not noTrains:
-        message = "There are no direct trains between these stations today. Please check the National Rail website for more info."
+        message = "There are no direct trains between these stations within the next 2 hours. Please check the National Rail website for more info."
         # Add message to textbox
-        board[-1].append(message, nlines=4)
+        board[-1].append(message, ntrim=4)
         # noTrains is True. Next time the board will only refresh if trains are present
         noTrains = True
         # dataLen set to -1. All rows will be removed in the loop
@@ -205,12 +205,11 @@ def newUpdateBoard(board, data: dict):
     else:
         # Trains are available, so set noTrains to False
         noTrains = False
-        # Length of data dict
         dataLen = len(data)
         
     for row in range(0, numRows):
         # If there are no more services to be displayed, reset the remaining row values and continue next loop
-        if row > dataLen:
+        if row >= dataLen:
             board[row][0].value("") # Time
             board[row][1].value("") # Destination
             board[row][2].value("") # Expected
