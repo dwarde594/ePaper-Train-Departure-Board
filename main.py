@@ -5,7 +5,7 @@ import ujson
 import micropython
 
 print("Mem before imports: ", gc.mem_alloc())
-from utime import sleep
+import utime
 from color_setup import ssd  # Import the ePaper display driver
 from gui.core.writer import Writer  # Import Writer class for writing text
 from gui.core.nanogui import refresh # Import refresh function that refreshes the contents on the screen
@@ -15,6 +15,29 @@ print("Mem after imports: ", gc.mem_alloc())
 import gui.fonts.courier20 as courier20  # Import courier20 font
 print("Mem after font import: ", gc.mem_alloc())
 print(micropython.mem_info())
+
+def validate_config(config: dict):
+    """ Validate the config dictionary. """
+    # Define the expected configuration schema
+    expected_config = {
+        "ssid": str,
+        "password": str,
+        "crs": str,
+        "filterCrs": str,
+        "numRows": int,
+        "api_key": str,
+    }
+    
+    for key, expected_type in expected_config.items():
+        if key not in config:
+            raise ValueError(f"Missing key in config: {key}")
+        # Checks if the value is of the expected type using isinstance function
+        if not isinstance(config[key], expected_type):
+            raise TypeError(f"Invalid type for key '{key}': expected {expected_type.__name__}, got {type(config[key]).__name__}")
+        # Additional checks for specific keys
+        if key == "numRows" and config[key] <= 0:
+            raise ValueError(f"Invalid value for 'numRows': must be a positive integer, got {config[key]}")
+    print("Configuration validated successfully.")
 
 # Opens config.json file and implements error handling
 try:
@@ -26,7 +49,8 @@ except OSError as e:
     raise e
 except Exception as e:
     print("Failed to open config.json file. Please ensure it is present and accessible.")
-    raise e
+
+validate_config(config)
 
 # Info to connect to wireless network
 ssid = config["ssid"]
@@ -67,7 +91,7 @@ def connect(ssid, password):
 
     while not wlan.isconnected() and attempt < max_retries:
         print(f"Attempt {attempt + 1} of {max_retries}: Waiting for connection...")
-        sleep(1)
+        utime.sleep(1.5)
         attempt += 1
 
     if wlan.isconnected():
@@ -80,17 +104,35 @@ def connect(ssid, password):
 
 
 
-def getData(url : str, api_key : str):
+def getData(url : str, api_key : str, max_retries=4):
     ''' Function that gets the departure data from the API endpoint, extracts key data and returns as a dictionary. '''
+    gc.collect()
     
-    try:
-        req = urequests.get(url, headers={"x-apikey": api_key})
-        print("Response code:", req.status_code)
-    # If API call fails, print error and output to message screen. Then raise error.
-    except Exception as e:
-        message = "API call failed:", e
+    attempts = 1
+    success = False
+    
+    while attempts <= max_retries:
+        print(f"API connection attempt {attempts} of {max_retries}")
+        try:
+            req = urequests.get(url, headers={"x-apikey": api_key})
+            print("Response code:", req.status_code)
+        except Exception as e:
+            print(str(e))
+            print("Attempt failed. Retrying...")
+            req.close()
+            utime.sleep(2)
+            attempt += 1
+        else:
+            print("API connection successful.")
+            success = True
+            break
+
+    
+    # If API call fails, print error and output to screen. Then raise error.
+    if not success:
+        message = "API call failed with status code:", req.status_code
         print(message)
-        raise e
+        raise Exception(message)
     
     print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
@@ -184,7 +226,7 @@ def initialiseBoard(wri, y_pos: int):
 
 def newUpdateBoard(board, data: dict):
     ''' Adds the data to the display in a readable format. Combined updateBoard and formatData functions to save RAM '''
-    global delayBuffer, noTrains
+    global delayBuffer
     
     # Flag to show if a delay has already been discovered
     delayFound = False
@@ -264,7 +306,6 @@ def displayError(wri, error: str):
 
 def main():
     ''' Main function that displays the data on the screen. '''
-    global ssid, password
     
     # Writer object with courier 20 font
     wri = Writer(ssd, courier20, verbose=False)
@@ -274,25 +315,26 @@ def main():
     # Connects to network using supplied ssid and password
     try:
         wlan = connect(ssid, password)
-
     # If connection fails, print error message and display it on screen. Then raise the error
     except Exception as e:
         message = "Wi-Fi connection failed: " + str(e)
         print(message)
         displayError(wri, message)
         raise e
+    
     print("Mem after wifi:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     # Creates a board on display to write train departures on
     board = initialiseBoard(wri, 0)
     print("Mem after board:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
+    
     while True:
         
         if not wlan.isconnected():
             message = "Wi-Fi connection lost. Please check you are in range."
             print(message)
             displayError(wri, message)
-            raise Exception("Wi-Fi connection lost.")
+            raise Exception("Wi-Fi connection lost. WLAN status:", wlan.status())
         
         try:
             # Call getData function and store in JSON variable
@@ -313,7 +355,7 @@ def main():
         gc.collect()
         print(micropython.mem_info())
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
-        sleep(180)
+        utime.sleep(180)
         
 if __name__ == '__main__':
     main()
