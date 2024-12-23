@@ -1,10 +1,10 @@
 import gc
+print("Mem before imports: ", gc.mem_alloc())
 import network
 import urequests
 import ujson
 import micropython
 
-print("Mem before imports: ", gc.mem_alloc())
 import utime
 from color_setup import ssd  # Import the ePaper display driver
 from gui.core.writer import Writer  # Import Writer class for writing text
@@ -14,7 +14,6 @@ from gui.widgets.textbox import Textbox # Import Textbox widget to display long 
 print("Mem after imports: ", gc.mem_alloc())
 import gui.fonts.courier20 as courier20  # Import courier20 font
 print("Mem after font import: ", gc.mem_alloc())
-print(micropython.mem_info())
 
 def validate_config(config: dict):
     """ Validate the config dictionary. """
@@ -104,7 +103,7 @@ def connect(ssid, password):
 
 
 
-def getData(url : str, api_key : str, max_retries=4):
+def get_data(url: str, api_key: str, max_retries=4):
     ''' Function that gets the departure data from the API endpoint, extracts key data and returns as a dictionary. '''
     gc.collect()
     
@@ -119,9 +118,8 @@ def getData(url : str, api_key : str, max_retries=4):
         except Exception as e:
             print(str(e))
             print("Attempt failed. Retrying...")
-            req.close()
             utime.sleep(2)
-            attempt += 1
+            attempts += 1
         else:
             print("API connection successful.")
             success = True
@@ -179,7 +177,7 @@ def getData(url : str, api_key : str, max_retries=4):
     return formatted_data
 
 
-def initialiseBoard(wri, y_pos: int):
+def initialise_board(wri, y_pos: int):
     ''' Function that prepares the display for the train info to be added. '''
     
     # Title identifying the journey
@@ -224,9 +222,9 @@ def initialiseBoard(wri, y_pos: int):
     return board
 
 
-def newUpdateBoard(board, data: dict):
+def update_board(board, data: dict):
     ''' Adds the data to the display in a readable format. Combined updateBoard and formatData functions to save RAM '''
-    global delayBuffer
+    global delayBuffer, noTrains
     
     # Flag to show if a delay has already been discovered
     delayFound = False
@@ -287,7 +285,7 @@ def newUpdateBoard(board, data: dict):
             delayFound = True
 
 
-def displayError(wri, error: str):
+def display_error(wri, error: str):
     ''' Function that displays an error on the display to help with troubleshooting '''
     # Clear display
     refresh(ssd, True)
@@ -319,13 +317,13 @@ def main():
     except Exception as e:
         message = "Wi-Fi connection failed: " + str(e)
         print(message)
-        displayError(wri, message)
+        display_error(wri, message)
         raise e
     
     print("Mem after wifi:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     # Creates a board on display to write train departures on
-    board = initialiseBoard(wri, 0)
+    board = initialise_board(wri, 0)
     print("Mem after board:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     while True:
@@ -333,21 +331,21 @@ def main():
         if not wlan.isconnected():
             message = "Wi-Fi connection lost. Please check you are in range."
             print(message)
-            displayError(wri, message)
+            display_error(wri, message)
             raise Exception("Wi-Fi connection lost. WLAN status:", wlan.status())
         
         try:
-            # Call getData function and store in JSON variable
-            data = getData(url, api_key)
+            # Call get_data function and store in JSON variable
+            data = get_data(url, api_key)
         except Exception as e:
             message = "API GET request failed: " + str(e)
-            displayError(wri, message)
+            display_error(wri, message)
             raise e
         
         print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
 
         # Update the board with the data
-        newUpdateBoard(board, data)
+        update_board(board, data)
         # Refresh display after board update
         refresh(ssd)
         
