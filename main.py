@@ -76,7 +76,7 @@ delayBuffer = ""
 # Flag to show if there are no trains to display
 noTrains = False
 
-def connect(ssid, password):
+def connect(ssid, password, max_retries=8):
     """Function that connects to the wireless network using the ssid and password parameters."""
     wlan = network.WLAN(network.STA_IF)
     # Closes any previous connections
@@ -85,7 +85,6 @@ def connect(ssid, password):
 
     wlan.connect(ssid, password)
 
-    max_retries = 6
     attempt = 0
 
     while not wlan.isconnected() and attempt < max_retries:
@@ -128,7 +127,7 @@ def get_data(url: str, api_key: str, max_retries=4):
     
     # If API call fails, print error and output to screen. Then raise error.
     if not success:
-        message = "API call failed with status code:", req.status_code
+        message = f"API call failed after {attempts} attempts. Please check your Wi-Fi connection and try again."
         print(message)
         raise Exception(message)
     
