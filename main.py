@@ -358,7 +358,6 @@ def main():
             else:
                 if wlan.isconnected():  # Only reinitialize if reconnection is successful
                     print("Wi-Fi reconnected...")
-                    board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
                     network_disconnected = False
                     # Adds a message to indicate Wi-Fi reconnection
                     board[-1].append("Wi-Fi reconnected successfully.", ntrim=4)
