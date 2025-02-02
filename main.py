@@ -258,7 +258,7 @@ def update_board(board, data: dict):
             board[row][2].value("") # Expected
             continue
         
-        # Validate required keys
+        # Validate required keys. Must contain std, destination and etd keys
         if not all(k in data[row] for k in ["std", "destination", "etd"]):
             print(f"Skipping invalid entry: {data[row]}")  # Log missing data
             continue  # Skip this entry
@@ -340,22 +340,29 @@ def main():
         
         if not wlan.isconnected():
             print("Wi-Fi lost. Attempting to reconnect...")
-            board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
-            refresh(ssd)
-            network_disconnected = True
+            # If Wi-Fi has not disconnected before this...
+            if not network_disconnected:
+                # Add a disconnection message to textbox. ntrim=4 sets no. of text lines to store in RAM
+                board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
+                refresh(ssd)
+                # Set disconnected flag to True as we have now disconnected
+                network_disconnected = True
+                
             try:
                 wlan = connect(ssid, password)
             except Exception as e:
-                # Adds wi-fi disconnection message to textbox. ntrim=4 sets no. of text lines to store in RAM
+                # If reconnection failed, print a message a sleep for 10 seconds
                 print("Wi-Fi reconnection failed: " + str(e))
                 utime.sleep(10)
-                continue  # Skip to the next iteration instead of stopping
+                continue  # Skip to the next iteration
             else:
                 if wlan.isconnected():  # Only reinitialize if reconnection is successful
                     print("Wi-Fi reconnected...")
+                    board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
                     network_disconnected = False
-                    # Clears the textbox on display
-                    board[-1].clear()
+                    # Adds a message to indicate Wi-Fi reconnection
+                    board[-1].append("Wi-Fi reconnected successfully.", ntrim=4)
+                    refresh(ssd)
                     gc.collect()
 
         try:
