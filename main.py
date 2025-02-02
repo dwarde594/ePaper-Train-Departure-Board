@@ -76,6 +76,9 @@ delayBuffer = ""
 # Flag to show if there are no trains to display
 noTrains = False
 
+# Flag to show if the network is disconnected
+network_disconnected = True
+
 def connect(ssid, password, max_retries=8):
     """Function that connects to the wireless network using the ssid and password parameters."""
     wlan = network.WLAN(network.STA_IF)
@@ -202,11 +205,11 @@ def initialise_board(wri, y_pos: int):
     for i in range(0, numRows):
         
         # Row to be added to the 2d list
-        row = [
+        row = (
             Label(wri, y_pos, 0, wri.stringlen("00:00")), # Time
             Label(wri, y_pos, 90, wri.stringlen("Ashford International")), # Destination (Ashford International is the longest station name)
             Label(wri, y_pos, 340, wri.stringlen("Cancelled")) # Expected
-        ]
+        )
         
         board.append(row)
         
@@ -255,6 +258,11 @@ def update_board(board, data: dict):
             board[row][2].value("") # Expected
             continue
         
+        # Validate required keys
+        if not all(k in data[row] for k in ["std", "destination", "etd"]):
+            print(f"Skipping invalid entry: {data[row]}")  # Log missing data
+            continue  # Skip this entry
+
         # Rows to be added to the board
         board[row][0].value(data[row]["std"]) # Time
         board[row][1].value(data[row]["destination"]) # Destination
@@ -318,6 +326,9 @@ def main():
         print(message)
         display_error(wri, message)
         raise e
+    # If connection is successful, set network_disconnected to False
+    else:
+        network_disconnected = False
     
     print("Mem after wifi:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
@@ -329,12 +340,23 @@ def main():
         
         if not wlan.isconnected():
             print("Wi-Fi lost. Attempting to reconnect...")
+            board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
+            refresh(ssd)
+            network_disconnected = True
             try:
                 wlan = connect(ssid, password)
             except Exception as e:
-                display_error(wri, "Wi-Fi reconnection failed: " + str(e))
+                # Adds wi-fi disconnection message to textbox. ntrim=4 sets no. of text lines to store in RAM
+                print("Wi-Fi reconnection failed: " + str(e))
                 utime.sleep(10)
                 continue  # Skip to the next iteration instead of stopping
+            else:
+                if wlan.isconnected():  # Only reinitialize if reconnection is successful
+                    print("Wi-Fi reconnected...")
+                    network_disconnected = False
+                    # Clears the textbox on display
+                    board[-1].clear()
+                    gc.collect()
 
         try:
             # Call get_data function and store in JSON variable
