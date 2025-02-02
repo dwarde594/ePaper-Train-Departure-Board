@@ -76,10 +76,10 @@ delayBuffer = ""
 # Flag to show if there are no trains to display
 noTrains = False
 
-# Flag to show if the network is disconnected
+# Flag to show if the network is disconnected. Assists with network reconnection during runtime
 network_disconnected = True
 
-def connect(ssid, password, max_retries=8):
+def connect(ssid: str, password: str, max_retries: int = 8):
     """Function that connects to the wireless network using the ssid and password parameters."""
     wlan = network.WLAN(network.STA_IF)
     # Closes any previous connections
@@ -105,7 +105,7 @@ def connect(ssid, password, max_retries=8):
 
 
 
-def get_data(url: str, api_key: str, max_retries=4):
+def get_data(url: str, api_key: str, max_retries: int = 4):
     ''' Function that gets the departure data from the API endpoint, extracts key data and returns as a dictionary. '''
     gc.collect()
     
@@ -174,7 +174,7 @@ def get_data(url: str, api_key: str, max_retries=4):
         formatted_data.append(service_info)
     
     print("Mem after formatted API response:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
-    print(formatted_data)
+
     gc.collect()
     
     return formatted_data
