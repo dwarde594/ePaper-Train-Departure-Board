@@ -116,6 +116,7 @@ def get_data(url: str, api_key: str, max_retries=4):
             print("Response code:", req.status_code)
         except Exception as e:
             print(str(e))
+            gc.collect()
             print("Attempt failed. Retrying...")
             utime.sleep(2)
             attempts += 1
@@ -253,7 +254,7 @@ def update_board(board, data: dict):
             board[row][1].value("") # Destination
             board[row][2].value("") # Expected
             continue
-
+        
         # Rows to be added to the board
         board[row][0].value(data[row]["std"]) # Time
         board[row][1].value(data[row]["destination"]) # Destination
@@ -303,7 +304,6 @@ def display_error(wri, error: str):
 
 def main():
     ''' Main function that displays the data on the screen. '''
-    
     # Writer object with courier 20 font
     wri = Writer(ssd, courier20, verbose=False)
     
@@ -328,11 +328,14 @@ def main():
     while True:
         
         if not wlan.isconnected():
-            message = "Wi-Fi connection lost. Please check you are in range."
-            print(message)
-            display_error(wri, message)
-            raise Exception("Wi-Fi connection lost. WLAN status:", wlan.status())
-        
+            print("Wi-Fi lost. Attempting to reconnect...")
+            try:
+                wlan = connect(ssid, password)
+            except Exception as e:
+                display_error(wri, "Wi-Fi reconnection failed: " + str(e))
+                utime.sleep(10)
+                continue  # Skip to the next iteration instead of stopping
+
         try:
             # Call get_data function and store in JSON variable
             data = get_data(url, api_key)
@@ -343,8 +346,14 @@ def main():
         
         print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
 
-        # Update the board with the data
-        update_board(board, data)
+        try:
+            # Update the board with the data
+            update_board(board, data)
+        except Exception as e:
+            message = "Display update failed: " + str(e)
+            display_error(wri, message)
+            raise e
+        
         # Refresh display after board update
         refresh(ssd)
         
