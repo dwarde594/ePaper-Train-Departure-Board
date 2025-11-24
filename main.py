@@ -341,6 +341,10 @@ def main():
         
         if not wlan.isconnected():
             print("Wi-Fi lost. Attempting to reconnect...")
+            
+            # Cleanup the old wlan object
+            del wlan
+            
             # If Wi-Fi has not disconnected before this...
             if not network_disconnected:
                 # Add a disconnection message to textbox. ntrim=4 sets no. of text lines to store in RAM
