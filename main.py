@@ -1,19 +1,16 @@
 import gc
-print("Mem before imports: ", gc.mem_alloc())
 import network
 import urequests
 import ujson
 import micropython
-
 import utime
 from color_setup import ssd  # Import the ePaper display driver
 from gui.core.writer import Writer  # Import Writer class for writing text
 from gui.core.nanogui import refresh # Import refresh function that refreshes the contents on the screen
 from gui.widgets.label import Label  # Import Label widget to display text
 from gui.widgets.textbox import Textbox # Import Textbox widget to display long text
-print("Mem after imports: ", gc.mem_alloc())
 import gui.fonts.courier20 as courier20  # Import courier20 font
-print("Mem after font import: ", gc.mem_alloc())
+
 
 def validate_config(config: dict):
     """ Validate the config dictionary. """
@@ -134,12 +131,8 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
         print(message)
         raise Exception(message)
     
-    print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
-    
     # Parses response to JSON. Very RAM intensive ATM, need to look at this.
     data = req.json()
-    
-    print("Mem after parsed API response:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     # Close once finished (very important!)
     req.close()
@@ -171,8 +164,6 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
             service_info["cancelReason"] = data["trainServices"][row]["cancelReason"]
             
         formatted_data.append(service_info)
-    
-    print("Mem after formatted API response:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
 
     gc.collect()
     
@@ -191,9 +182,6 @@ def initialise_board(wri, y_pos: int):
     Label(wri, y_pos, 0, "Time")
     Label(wri, y_pos, 90, "Destination")
     Label(wri, y_pos, 340, "Expt")
-    
-    
-    print("Mem after board headers:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     # Increment y_pos. Train data will be further down the page
     y_pos += courier20.height()
@@ -214,12 +202,10 @@ def initialise_board(wri, y_pos: int):
         
         # Increment y_pos to move down the screen
         y_pos += courier20.height()
-    
-    print("Mem after board contents:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
+
     # Finally adds the delay information to the bottom of the board
     board.append(Textbox(wri, y_pos + courier20.height(), 0, wri.stringlen("This is the width of the textbox.."), 4, clip=False))
     gc.collect()
-    print("Mem after delays box:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     return board
 
@@ -331,11 +317,8 @@ def main():
     else:
         network_disconnected = False
     
-    print("Mem after wifi:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
-    
     # Creates a board on display to write train departures on
     board = initialise_board(wri, 0)
-    print("Mem after board:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
     
     while True:
         
@@ -376,8 +359,6 @@ def main():
             message = "API GET request failed: " + str(e)
             display_error(wri, message)
             raise e
-        
-        print("Mem after API call:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free(), "bytes")
 
         try:
             # Update the board with the data
@@ -390,7 +371,6 @@ def main():
         # Refresh display after board update
         refresh(ssd)
         
-        print("Mem after:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free())
         gc.collect()
 
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
