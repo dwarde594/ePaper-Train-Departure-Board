@@ -42,7 +42,6 @@ def validate_config(config: dict):
 try:
     with open("config.json", "r") as file:
         config = ujson.load(file)
-        file.close()
 except OSError as e:
     print("config.json is not found. Please ensure it is present.")
     raise e
@@ -79,12 +78,12 @@ noTrains = False
 # Flag to show if the network is disconnected. Assists with network reconnection during runtime
 network_disconnected = True
 
-def connect(ssid: str, password: str, max_retries: int = 8):
+def connect(ssid: str, password: str, max_retries: int = 10):
     """Function that connects to the wireless network using the ssid and password parameters."""
     wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
     # Closes any previous connections
     wlan.disconnect()
-    wlan.active(True)
 
     wlan.connect(ssid, password)
 
@@ -105,11 +104,11 @@ def connect(ssid: str, password: str, max_retries: int = 8):
 
 
 
-def get_data(url: str, api_key: str, max_retries: int = 4):
+def get_data(url: str, api_key: str, max_retries: int = 6):
     ''' Function that gets the departure data from the API endpoint, extracts key data and returns as a dictionary. '''
     gc.collect()
     
-    attempts = 1
+    attempts = 0
     success = False
     
     while attempts <= max_retries:
@@ -312,6 +311,8 @@ def display_error(wri, error: str):
 
 def main():
     ''' Main function that displays the data on the screen. '''
+    global network_disconnected
+    
     # Writer object with courier 20 font
     wri = Writer(ssd, courier20, verbose=False)
     
@@ -387,7 +388,7 @@ def main():
         
         print("Mem after:", gc.mem_alloc(), "bytes  Mem free:", gc.mem_free())
         gc.collect()
-        print(micropython.mem_info())
+
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
         utime.sleep(180)
         
