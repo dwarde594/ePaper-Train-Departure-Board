@@ -115,6 +115,7 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
             print("Response code:", req.status_code)
         except Exception as e:
             print(str(e))
+            del req
             gc.collect()
             print("Attempt failed. Retrying...")
             utime.sleep(2)
@@ -371,6 +372,7 @@ def main():
         # Refresh display after board update
         refresh(ssd)
         
+        del data
         gc.collect()
 
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
