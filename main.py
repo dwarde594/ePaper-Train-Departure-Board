@@ -115,7 +115,7 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
             print("Response code:", req.status_code)
         except Exception as e:
             print(str(e))
-            del req
+            req = None
             gc.collect()
             print("Attempt failed. Retrying...")
             utime.sleep(2)
@@ -139,7 +139,7 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
     req.close()
     
     # If there are no train services, garbage collect and return None
-    if "trainServices" not in data.keys():
+    if "trainServices" not in data:
         gc.collect()
         return None
     
@@ -296,6 +296,9 @@ def main():
     
     refresh(ssd, True)
     
+    # Initialise wlan variable
+    wlan = None
+    
     # Connects to network using supplied ssid and password
     try:
         wlan = connect(ssid, password)
@@ -312,7 +315,7 @@ def main():
     
     while True:
         
-        if not wlan.isconnected():
+        if wlan is None or not wlan.isconnected():
             print("Wi-Fi connection lost. Attempting to reconnect...")
             
             # Cleanup the old wlan object
