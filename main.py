@@ -72,8 +72,8 @@ delayBuffer = ""
 # Flag to show if there are no trains to display
 noTrains = False
 
-# Flag to show if the network is disconnected. Assists with network reconnection during runtime
-network_disconnected = True
+# Flag to show if the network is connected. Assists with network reconnection during runtime
+network_connected = True
 
 def connect(ssid: str, password: str, max_retries: int = 10):
     """Function that connects to the wireless network using the ssid and password parameters."""
@@ -298,7 +298,7 @@ def display_error(wri, error: str):
 
 def main():
     ''' Main function that displays the data on the screen. '''
-    global network_disconnected
+    global network_connected
     
     # Writer object with courier 20 font
     wri = Writer(ssd, courier20, verbose=False)
@@ -308,15 +308,13 @@ def main():
     # Connects to network using supplied ssid and password
     try:
         wlan = connect(ssid, password)
-    # If connection fails, print error message and display it on screen. Then raise the error
+    # If connection fails, print a message then continue.
     except Exception as e:
-        message = "Wi-Fi connection failed: " + str(e)
-        print(message)
-        display_error(wri, message)
-        raise e
-    # If connection is successful, set network_disconnected to False
+        print("Wi-Fi connection failed: " + str(e))
+        network_connected = False
+    # If connection is successful, set network_connected to True
     else:
-        network_disconnected = False
+        network_connected = True
     
     # Creates a board on display to write train departures on
     board = initialise_board(wri, 0)
@@ -324,30 +322,30 @@ def main():
     while True:
         
         if not wlan.isconnected():
-            print("Wi-Fi lost. Attempting to reconnect...")
+            print("Wi-Fi connection lost. Attempting to reconnect...")
             
             # Cleanup the old wlan object
             del wlan
             
-            # If Wi-Fi has not disconnected before this...
-            if not network_disconnected:
+            # If Wi-Fi has only just disconnected...
+            if network_connected:
                 # Add a disconnection message to textbox. ntrim=4 sets no. of text lines to store in RAM
                 board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
                 refresh(ssd)
-                # Set disconnected flag to True as we have now disconnected
-                network_disconnected = True
+                # Set connected flag to False as we have now disconnected
+                network_connected = False
                 
             try:
                 wlan = connect(ssid, password)
             except Exception as e:
-                # If reconnection failed, print a message a sleep for 10 seconds
+                # If reconnection failed, print a message and sleep for 10 seconds
                 print("Wi-Fi reconnection failed: " + str(e))
                 utime.sleep(10)
                 continue  # Skip to the next iteration
             else:
                 if wlan.isconnected():  # Only reinitialize if reconnection is successful
                     print("Wi-Fi reconnected...")
-                    network_disconnected = False
+                    network_connected = True
                     # Adds a message to indicate Wi-Fi reconnection
                     board[-1].append("Wi-Fi reconnected successfully.", ntrim=4)
                     refresh(ssd)
