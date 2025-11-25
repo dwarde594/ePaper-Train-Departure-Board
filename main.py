@@ -146,23 +146,23 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
     # Dictionary that holds only the required departure info
     formatted_data = []
     
-    for row in range(0, len(data["trainServices"])):
+    # Stores the train services records from the API response
+    train_services = data["trainServices"]
+    
+    for service in train_services:
+        
         # Contains departure info about the service
         service_info = {
-            "std": data["trainServices"][row]["std"], # Time
-            "destination": data["trainServices"][row]["destination"][0]["locationName"], # Destination
-            "etd": data["trainServices"][row]["etd"] # Expected
+            "std": service["std"], # Time
+            "destination": service["destination"][0]["locationName"], # Destination
+            "etd": service["etd"] # Expected
         }
         
-        # Gets the dictionary keys of the train service for identification of delay/cancellation messages
-        service_keys = data["trainServices"][row].keys()
+        # Checks if the service contains a delay or cancellation message
+        delay_message = service.get("delayReason") or service.get("cancelReason")
         
-        # Checks if the service is delayed or cancelled. If so, add to the reason to the output dictionary
-        if "delayReason" in service_keys:
-            service_info["delayReason"] = data["trainServices"][row]["delayReason"]
-        
-        elif "cancelReason" in service_keys:
-            service_info["cancelReason"] = data["trainServices"][row]["cancelReason"]
+        if delay_message is not None:
+            service_info["delayMessage"] = delay_message
             
         formatted_data.append(service_info)
 
@@ -261,21 +261,12 @@ def update_board(board, data: dict):
         # If delay info is already displayed for this service, or a delay is already found, skip to next service.
         if data[row]["std"] in delayBuffer or delayFound:
             continue
-        
-        # Iterates through dictionary keys and produces any cancellation or delay messages
-        delay_gen = (key for key in ["delayReason", "cancelReason"] if key in data[row])
-        try:
-            delay_key = next(delay_gen)
-        # Once end of generator is reached, return no delay info
-        except StopIteration:
-            delay_key = None
-            continue
-        
+
         # If service is delayed or cancelled, add delay message to the textbox on board
-        if delay_key in ["delayReason", "cancelReason"]:
+        if "delayMessage" in data[row]:
             delayBuffer = data[row]["std"]
             # Adds delay/cancellation message to display. ntrim=4 sets no. of text lines to store in RAM
-            board[-1].append(data[row]["std"] + ": " + data[row][delay_key], ntrim=4)
+            board[-1].append(data[row]["std"] + ": " + data[row]["delayMessage"], ntrim=4)
             delayFound = True
 
 
@@ -378,5 +369,3 @@ def main():
         
 if __name__ == '__main__':
     main()
-
-
