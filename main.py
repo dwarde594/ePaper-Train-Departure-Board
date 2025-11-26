@@ -319,7 +319,8 @@ def main():
             print("Wi-Fi connection lost. Attempting to reconnect...")
             
             # Cleanup the old wlan object
-            del wlan
+            if wlan is not None:
+                del wlan
             
             # If Wi-Fi has only just disconnected...
             if network_connected:
