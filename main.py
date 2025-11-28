@@ -369,7 +369,8 @@ def main():
             refresh(ssd)
             
             del data
-            gc.collect()
+        
+        gc.collect()
 
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
         utime.sleep(180)
