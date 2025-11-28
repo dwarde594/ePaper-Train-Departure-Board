@@ -364,11 +364,12 @@ def main():
             display_error(wri, message)
             raise e
         
-        # Refresh display after board update
-        refresh(ssd)
-        
-        del data
-        gc.collect()
+        if data is not None:
+            # Refresh display after board update
+            refresh(ssd)
+            
+            del data
+            gc.collect()
 
         # Wait for 3 minutes (180 seconds) using utime library instead of async (less RAM intensive)
         utime.sleep(180)
