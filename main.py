@@ -315,7 +315,7 @@ def main():
     
     while True:
         
-        if wlan is None or not wlan.isconnected():
+        if not wlan.isconnected() or not network_connected or wlan is None:
             print("Wi-Fi connection lost. Attempting to reconnect...")
             
             # Cleanup the old wlan object
@@ -324,11 +324,12 @@ def main():
             
             # If Wi-Fi has only just disconnected...
             if network_connected:
-                # Add a disconnection message to textbox. ntrim=4 sets no. of text lines to store in RAM
-                board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
-                refresh(ssd)
                 # Set connected flag to False as we have now disconnected
                 network_connected = False
+            
+            # Add a disconnection message to textbox. ntrim=4 sets no. of text lines to store in RAM
+            board[-1].append("Wi-Fi connection lost. Attempting to reconnect...", ntrim=4)
+            refresh(ssd)
                 
             try:
                 wlan = connect(ssid, password)
@@ -351,8 +352,9 @@ def main():
             data = get_data(url, api_key)
         except Exception as e:
             message = "API GET request failed: " + str(e)
-            display_error(wri, message)
-            raise e
+            print(message)
+            # Assume network has disconnected if we can't reach API
+            network_connected = False
 
         try:
             # Update the board with the data
