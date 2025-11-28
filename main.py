@@ -336,7 +336,7 @@ def main():
             except Exception as e:
                 # If reconnection failed, print a message and sleep for 10 seconds
                 print("Wi-Fi reconnection failed: " + str(e))
-                utime.sleep(10)
+                utime.sleep(5)
                 continue  # Skip to the next iteration
             else:
                 if wlan.isconnected():  # Only reinitialize if reconnection is successful
