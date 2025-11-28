@@ -231,6 +231,9 @@ def update_board(board, data: dict):
     elif data is None and noTrains:
         # Exit function. Do not need to update board.
         return
+    # If there are now train services upcoming, clear the textbox
+    elif data is not None and noTrains:
+        board[-1].clear()
     else:
         # Trains are available, so set noTrains to False
         noTrains = False
@@ -356,16 +359,17 @@ def main():
             print(message)
             # Assume network has disconnected if we can't reach API
             network_connected = False
-
-        try:
-            # Update the board with the data
-            update_board(board, data)
-        except Exception as e:
-            message = "Display update failed: " + str(e)
-            display_error(wri, message)
-            raise e
         
+        # Only update board if data was returned
         if data is not None:
+            try:
+                # Update the board with the data
+                update_board(board, data)
+            except Exception as e:
+                message = "Display update failed: " + str(e)
+                display_error(wri, message)
+                raise e
+        
             # Refresh display after board update
             refresh(ssd)
             
