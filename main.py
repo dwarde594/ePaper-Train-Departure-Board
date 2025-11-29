@@ -105,37 +105,58 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
     gc.collect()
     
     attempts = 0
-    success = False
+    
+    req = None
+    data = None
     
     while attempts <= max_retries:
         print(f"API connection attempt {attempts} of {max_retries}")
         try:
             req = urequests.get(url, headers={"x-apikey": api_key}, timeout=8)
-            print("Response code:", req.status_code)
         except Exception as e:
             print(str(e))
+            try:
+                if req:
+                    req.close()
+            except:
+                pass
             req = None
             gc.collect()
-            print("Attempt failed. Retrying...")
             utime.sleep(2)
             attempts += 1
-        else:
-            print("API connection successful.")
-            success = True
-            break
+            continue
 
+        print("API connection successful.")
+            
+        # Parses response to JSON. Very RAM intensive ATM, need to look at this.
+        try:
+            data = req.json()
+        except Exception as e:
+            print("JSON parsing failed: " + str(e))
+            try:
+                if req:
+                    req.close()
+            except:
+                pass
+            req = None
+            gc.collect()
+            utime.sleep(2)
+            attempts += 1
+            continue
+
+        # Close once finished (very important!)
+        try:
+            if req:
+                req.close()
+        except:
+            pass
+        finally:
+            break
     
-    # If API call fails, print error and output to screen. Then raise error.
-    if not success:
-        message = f"API call failed after {attempts} attempts. Please check your Wi-Fi connection and try again."
-        print(message)
+    # If no data is returned, raise an error
+    if data is None:
+        message = f"API call failed after {attempts} attempts."
         raise Exception(message)
-    
-    # Parses response to JSON. Very RAM intensive ATM, need to look at this.
-    data = req.json()
-    
-    # Close once finished (very important!)
-    req.close()
     
     # If there are no train services, garbage collect and return None
     if "trainServices" not in data:
