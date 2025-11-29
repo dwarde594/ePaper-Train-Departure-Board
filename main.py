@@ -142,6 +142,9 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
             
             break
     
+    # If nothing is retrieved from API, return None
+    if raw_text is None:
+        return None
     
     attempts = 0
     
@@ -244,8 +247,6 @@ def update_board(board, data: dict):
     # Flag to show if a delay has already been discovered
     delayFound = False
     
-    dataLen = len(data)
-    
     # Checks if there are no trains in the response dictionary
     if data is None and not noTrains:
         delayBuffer = ""
@@ -265,9 +266,11 @@ def update_board(board, data: dict):
         board[-1].clear()
         # Next time board will refresh as normal
         noTrains = False
+        dataLen = len(data)
     else:
         # Trains are available, so set noTrains to False
         noTrains = False
+        dataLen = len(data)
         
     for row in range(0, numRows):
         # If there are no more services to be displayed, reset the remaining row values and continue next loop
