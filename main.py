@@ -2,7 +2,6 @@ import gc
 import network
 import urequests
 import ujson
-import micropython
 import utime
 from color_setup import ssd  # Import the ePaper display driver
 from gui.core.writer import Writer  # Import Writer class for writing text
@@ -318,7 +317,7 @@ def main():
     
     while True:
         
-        if not wlan.isconnected() or not network_connected or wlan is None:
+        if wlan is None or not wlan.isconnected() or not network_connected:
             print("Wi-Fi connection lost. Attempting to reconnect...")
             
             # Cleanup the old wlan object
