@@ -110,7 +110,7 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
     while attempts <= max_retries:
         print(f"API connection attempt {attempts} of {max_retries}")
         try:
-            req = urequests.get(url, headers={"x-apikey": api_key})
+            req = urequests.get(url, headers={"x-apikey": api_key}, timeout=8)
             print("Response code:", req.status_code)
         except Exception as e:
             print(str(e))
