@@ -108,13 +108,16 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
     
     req = None
     data = None
+    raw_text = None
     
+    # API connection loop
     while attempts <= max_retries:
         print(f"API connection attempt {attempts} of {max_retries}")
         try:
             req = urequests.get(url, headers={"x-apikey": api_key}, timeout=8)
+            raw_text = req.text
         except Exception as e:
-            print(str(e))
+            print("API connection failed: " + str(e))
             try:
                 if req:
                     req.close()
@@ -122,41 +125,41 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
                 pass
             req = None
             gc.collect()
+            if attempts == max_retries:
+                raise Exception(f"API call failed after {attempts} attempts.")
             utime.sleep(2)
             attempts += 1
             continue
-
-        print("API connection successful.")
+        else:
+            try:
+                if req:
+                    req.close()
+            except:
+                pass
             
-        # Parses response to JSON. Very RAM intensive ATM, need to look at this.
-        try:
-            data = req.json()
-        except Exception as e:
-            print("JSON parsing failed: " + str(e))
-            try:
-                if req:
-                    req.close()
-            except:
-                pass
-            req = None
             gc.collect()
-            utime.sleep(2)
-            attempts += 1
-            continue
-
-        # Close once finished (very important!)
-        try:
-            if req:
-                req.close()
-        except:
-            pass
-        finally:
+            
             break
     
-    # If no data is returned, raise an error
-    if data is None:
-        message = f"API call failed after {attempts} attempts."
-        raise Exception(message)
+    
+    attempts = 0
+    
+    # JSON parsing loop
+    while attempts <= max_retries:
+        print(f"JSON parsing attempt {attempts} of {max_retries}")
+        # Parses response to JSON. Very RAM intensive ATM, need to look at this.
+        try:
+            data = ujson.loads(raw_text)
+        except Exception as e:
+            print("JSON parsing failed: " + str(e))
+            gc.collect()
+            if attempts == max_retries:
+                raise Exception("JSON parsing failed: " + str(e))
+            utime.sleep(2)
+            attempts += 1
+            continue
+        else:
+            break
     
     # If there are no train services, garbage collect and return None
     if "trainServices" not in data:
