@@ -260,6 +260,7 @@ def update_board(board, data: dict):
     # If there are now train services upcoming, clear the textbox
     elif data is not None and noTrains:
         board[-1].clear()
+        dataLen = len(data)
     else:
         # Trains are available, so set noTrains to False
         noTrains = False
