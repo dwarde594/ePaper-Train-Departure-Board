@@ -137,6 +137,7 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
             except:
                 pass
             
+            req = None
             gc.collect()
             
             break
@@ -161,9 +162,11 @@ def get_data(url: str, api_key: str, max_retries: int = 6):
         else:
             break
     
-    # If there are no train services, garbage collect and return None
+    del raw_text
+    gc.collect()
+    
+    # If there are no train services, return None
     if "trainServices" not in data:
-        gc.collect()
         return None
     
     # Dictionary that holds only the required departure info
