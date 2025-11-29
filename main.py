@@ -244,8 +244,11 @@ def update_board(board, data: dict):
     # Flag to show if a delay has already been discovered
     delayFound = False
     
+    dataLen = len(data)
+    
     # Checks if there are no trains in the response dictionary
     if data is None and not noTrains:
+        delayBuffer = ""
         message = "There are no direct trains between these stations within the next 2 hours. Please check the National Rail website for more info."
         # Add message to textbox
         board[-1].append(message, ntrim=4)
@@ -260,11 +263,11 @@ def update_board(board, data: dict):
     # If there are now train services upcoming, clear the textbox
     elif data is not None and noTrains:
         board[-1].clear()
-        dataLen = len(data)
+        # Next time board will refresh as normal
+        noTrains = False
     else:
         # Trains are available, so set noTrains to False
         noTrains = False
-        dataLen = len(data)
         
     for row in range(0, numRows):
         # If there are no more services to be displayed, reset the remaining row values and continue next loop
