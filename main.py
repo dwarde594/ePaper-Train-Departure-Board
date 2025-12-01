@@ -356,7 +356,11 @@ def main():
             
             # Cleanup the old wlan object
             if wlan is not None:
-                del wlan
+                try:
+                    wlan.active(False)
+                except:
+                    pass
+                wlan = None
             
             # If Wi-Fi has only just disconnected...
             if network_connected:
