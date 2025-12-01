@@ -392,14 +392,18 @@ def main():
             print(message)
             # Assume network has disconnected if we can't reach API
             network_connected = False
-
-        try:
-            # Update the board with the data
-            update_board(board, data)
-        except Exception as e:
-            message = "Display update failed: " + str(e)
-            display_error(wri, message)
-            raise e
+            board[-1].append("API connection failed. Retrying next update.", ntrim=4)
+            refresh(ssd)
+            data = None
+            gc.collect()
+        else:
+            try:
+                # Update the board with the data
+                update_board(board, data)
+            except Exception as e:
+                message = "Display update failed: " + str(e)
+                display_error(wri, message)
+                raise e
         
         if data is not None:
             del data
