@@ -376,8 +376,8 @@ def main():
             except Exception as e:
                 # If reconnection failed, print a message and sleep for 10 seconds
                 print("Wi-Fi reconnection failed: " + str(e))
-                gc.collect()
-                utime.sleep(10)
+
+                utime.sleep_ms(200)
                 continue  # Skip to the next iteration
             else:
                 if wlan.isconnected():  # Only reinitialize if reconnection is successful
@@ -399,7 +399,6 @@ def main():
             board[-1].append("API connection failed. Retrying next update.", ntrim=4)
             refresh(ssd)
             data = None
-            gc.collect()
         else:
             try:
                 # Update the board with the data
